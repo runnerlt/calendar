@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1e293b">
+  <title>Family Calendar</title>
+  <link rel="manifest" href="manifest.json">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+
+    header {
+      background: #1e293b;
+      color: white;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.15rem; font-weight: 600; }
+    header .actions { display: flex; gap: 8px; }
+
+    .btn {
+      padding: 7px 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn-primary  { background: #22c55e; color: white; }
+    .btn-primary:hover  { background: #16a34a; }
+    .btn-secondary { background: #334155; color: white; }
+    .btn-secondary:hover { background: #475569; }
+    .btn-danger   { background: #ef4444; color: white; }
+    .btn-danger:hover   { background: #dc2626; }
+    .btn-outline  { background: transparent; border: 1px solid #cbd5e1; color: #475569; }
+    .btn-outline:hover  { background: #f1f5f9; }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      padding: 8px 20px;
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #475569; }
+    .legend-dot  { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+
+    #calendar-wrap { padding: 16px; max-width: 1100px; margin: 0 auto; }
+
+    .fc-event { cursor: pointer; }
+    .fc .fc-toolbar-title { font-size: 1.1rem; }
+    .fc .fc-button { font-size: 0.8rem; }
+    .fc .fc-daygrid-day-number { font-size: 0.85rem; }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .modal h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 18px; }
+
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #64748b;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: 8px 11px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      color: #1e293b;
+      background: white;
+    }
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+    .field textarea { resize: vertical; min-height: 65px; font-family: inherit; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field-hint { font-size: 0.73rem; color: #94a3b8; margin-top: 4px; }
+
+    .modal-actions { display: flex; gap: 8px; margin-top: 20px; align-items: center; }
+    .modal-actions .spacer { flex: 1; }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #1e293b;
+      color: white;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      z-index: 2000;
+      transform: translateY(60px);
+      opacity: 0;
+      transition: all 0.22s ease;
+      pointer-events: none;
+    }
+    .toast.show   { transform: translateY(0); opacity: 1; }
+    .toast.success { background: #15803d; }
+    .toast.error   { background: #b91c1c; }
+
+    .saving-badge {
+      position: fixed;
+      top: 56px;
+      right: 16px;
+      background: #3b82f6;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      z-index: 999;
+      display: none;
+    }
+    .saving-badge.show { display: block; }
+
+    #pin-gate {
+      position: fixed;
+      inset: 0;
+      background: #1e293b;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 24px;
+    }
+    #pin-gate h1 { color: white; font-size: 1.3rem; font-weight: 600; margin-bottom: 8px; }
+    #pin-gate p  { color: #94a3b8; font-size: 0.85rem; text-align: center; max-width: 260px; }
+    #pin-input {
+      width: 100%;
+      max-width: 260px;
+      padding: 12px 16px;
+      border: 2px solid #334155;
+      border-radius: 10px;
+      background: #0f172a;
+      color: white;
+      font-size: 1.1rem;
+      text-align: center;
+      letter-spacing: 0.15em;
+      outline: none;
+    }
+    #pin-input:focus { border-color: #22c55e; }
+    #pin-error { color: #f87171; font-size: 0.85rem; display: none; }
+
+    .fc-event-desc {
+      font-size: 0.72em;
+      opacity: 0.88;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+
+    @media (max-width: 480px) {
+      .field-row { grid-template-columns: 1fr; }
+      .modal { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>&#128197; Family Calendar</h1>
+  <div class="actions">
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add</button>
+    <button class="btn btn-secondary" onclick="openGenerate()">&#8635; Generate</button>
+    <button class="btn btn-secondary" onclick="openSettings()">&#9881; Settings</button>
+  </div>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div> Daughter with me</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> My vacation</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div> Daughter's vacation</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div> Important event</div>
+</div>
+
+<div id="calendar-wrap">
+  <div id="calendar"></div>
+</div>
+
+<div class="saving-badge" id="saving-badge">Saving…</div>
+
+<!-- Event modal (add / edit) -->
+<div class="modal-overlay" id="event-modal">
+  <div class="modal">
+    <h2 id="modal-title">Add Event</h2>
+    <div class="field">
+      <label>Title</label>
+      <input type="text" id="f-title" placeholder="e.g. Weekend with daughter" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Type</label>
+      <select id="f-type">
+        <option value="custody">Daughter with me</option>
+        <option value="vacation-me">My vacation</option>
+        <option value="vacation-daughter">Daughter's vacation</option>
+        <option value="event">Important event</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Start date</label>
+        <input type="date" id="f-start">
+      </div>
+      <div class="field">
+        <label>End date</label>
+        <input type="date" id="f-end">
+      </div>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <textarea id="f-notes" placeholder="Optional short description…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="delete-btn" onclick="deleteEvent()">Delete</button>
+      <div class="spacer"></div>
+      <button class="btn btn-outline" onclick="closeModal('event-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEvent()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <h2>GitHub Settings</h2>
+    <div class="field">
+      <label>GitHub Username</label>
+      <input type="text" id="s-owner" placeholder="your-username" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label>Repository Name</label>
+      <input type="text" id="s-repo" placeholder="calendar" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label>Personal Access Token</label>
+      <input type="password" id="s-token" placeholder="github_pat_…" autocomplete="off">
+      <p class="field-hint">
+        github.com &#8594; Settings &#8594; Developer settings &#8594; Personal access tokens &#8594; Fine-grained<br>
+        Required permission: <strong>Contents</strong> &#8594; Read and Write
+      </p>
+    </div>
+    <div class="field" style="border-top:1px solid #e2e8f0;padding-top:14px;margin-top:4px">
+      <label>New device setup</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="s-init-url" readonly style="flex:1;background:#f8fafc;color:#64748b;font-size:0.8rem;cursor:default">
+        <button class="btn btn-outline" onclick="copySetupLink()" style="white-space:nowrap;flex-shrink:0">Copy link</button>
+      </div>
+      <p class="field-hint">Open this link in any new browser/device to set a PIN there.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="changePIN()">Change PIN</button>
+      <button class="btn btn-outline" onclick="encryptAndSave()" title="Encrypt events.json now">Encrypt &amp; Save</button>
+      <div class="spacer"></div>
+      <button class="btn btn-outline" onclick="closeModal('settings-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generate custody weeks modal -->
+<div class="modal-overlay" id="generate-modal">
+  <div class="modal">
+    <h2>Generate Custody Weeks</h2>
+    <p style="font-size:0.85rem;color:#64748b;margin-bottom:18px">
+      Generates &ldquo;Daughter with me&rdquo; weeks (Mon&ndash;Sun) for every other week in the chosen range.
+      Existing custody events in the range are skipped.
+    </p>
+    <div class="field">
+      <label>Reference custody Monday</label>
+      <input type="date" id="g-ref" value="2026-05-11">
+      <p class="field-hint">Any Monday when your daughter was / will be with you.</p>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>From</label>
+        <input type="date" id="g-from">
+      </div>
+      <div class="field">
+        <label>To</label>
+        <input type="date" id="g-to">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button class="btn btn-outline" onclick="closeModal('generate-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="runGenerate()">Generate</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script>
+const EVENTS_FILE = 'events.json';
+
+const TYPE_COLORS = {
+  'custody':           '#22c55e',
+  'vacation-me':       '#3b82f6',
+  'vacation-daughter': '#f97316',
+  'event':             '#a855f7'
+};
+
+let calendar;
+let events    = [];
+let fileSha   = null;
+let editingId = null;
+let activePIN = null;
+let eventsReady = false;
+
+// Custody week generation
+// Same parity trick as the SQL version: floor(epochDays / 7) % 2
+// Calibrate against a known reference Monday to get the right phase.
+
+function custodyParity(refMonday) {
+  return Math.floor(refMonday.getTime() / 86400000 / 7) % 2;
+}
+
+function openGenerate() {
+  const today = todayStr();
+  const threeYears = new Date();
+  threeYears.setFullYear(threeYears.getFullYear() + 3);
+  document.getElementById('g-from').value = today;
+  document.getElementById('g-to').value   = threeYears.toISOString().split('T')[0];
+  document.getElementById('generate-modal').classList.add('open');
+}
+
+async function runGenerate() {
+  const refStr  = document.getElementById('g-ref').value;
+  const fromStr = document.getElementById('g-from').value;
+  const toStr   = document.getElementById('g-to').value;
+
+  if (!refStr || !fromStr || !toStr) {
+    showToast('Fill in all fields', 'error');
+    return;
+  }
+
+  const ref  = new Date(refStr  + 'T12:00:00');
+  const from = new Date(fromStr + 'T12:00:00');
+  const to   = new Date(toStr   + 'T12:00:00');
+
+  if (ref.getDay() !== 1) { showToast('Reference date must be a Monday', 'error'); return; }
+  if (from > to)          { showToast('From must be before To', 'error'); return; }
+
+  const targetParity = custodyParity(ref);
+
+  // Collect existing custody start dates for duplicate check
+  const existingStarts = new Set(
+    events.filter(e => e.type === 'custody').map(e => e.start)
+  );
+
+  // Walk forward by 2 weeks from the first custody Monday >= from
+  // Find the first Monday on or after 'from' that has the right parity
+  const cur = new Date(from);
+  // Advance to Monday
+  while (cur.getDay() !== 1) cur.setDate(cur.getDate() + 1);
+  // Advance to the correct parity Monday
+  while (custodyParity(cur) !== targetParity) cur.setDate(cur.getDate() + 7);
+
+  let added = 0;
+  while (cur <= to) {
+    const start = cur.toISOString().split('T')[0];
+    if (!existingStarts.has(start)) {
+      const endD = new Date(cur);
+      endD.setDate(endD.getDate() + 6);
+      events.push({
+        id:    'custody-gen-' + start,
+        title: 'Daughter with me',
+        type:  'custody',
+        start,
+        end:   endD.toISOString().split('T')[0],
+        notes: ''
+      });
+      added++;
+    }
+    cur.setDate(cur.getDate() + 14);
+  }
+
+  if (added === 0) {
+    showToast('No new weeks to add in this range', '');
+    closeModal('generate-modal');
+    return;
+  }
+
+  closeModal('generate-modal');
+  renderEvents();
+  const ok = await persistEvents();
+  if (ok) showToast(`Generated ${added} custody week${added !== 1 ? 's' : ''} ✓`, 'success');
+}
+
+// Settings
+
+function getSettings() {
+  return {
+    owner: localStorage.getItem('gh_owner') || '',
+    repo:  localStorage.getItem('gh_repo')  || 'calendar',
+    token: localStorage.getItem('gh_token') || ''
+  };
+}
+
+function openSettings() {
+  const s = getSettings();
+  document.getElementById('s-owner').value = s.owner;
+  document.getElementById('s-repo').value  = s.repo;
+  document.getElementById('s-token').value = s.token;
+  document.getElementById('s-init-url').value = location.origin + location.pathname + '#init';
+  document.getElementById('settings-modal').classList.add('open');
+}
+
+function saveSettings() {
+  const owner = document.getElementById('s-owner').value.trim();
+  const repo  = document.getElementById('s-repo').value.trim();
+  const token = document.getElementById('s-token').value.trim();
+  if (!owner || !repo || !token) {
+    showToast('Fill in all three fields', 'error');
+    return;
+  }
+  localStorage.setItem('gh_owner', owner);
+  localStorage.setItem('gh_repo',  repo);
+  localStorage.setItem('gh_token', token);
+  fileSha = null;
+  closeModal('settings-modal');
+  showToast('Settings saved', 'success');
+}
+
+// Crypto helpers (Web Crypto API — no external dependencies)
+
+function toHex(b) { return Array.from(b).map(x => x.toString(16).padStart(2,'0')).join(''); }
+function fromHex(h) { return new Uint8Array(h.match(/.{2}/g).map(x => parseInt(x,16))); }
+function toB64(b) { return btoa(String.fromCharCode(...b)); }
+function fromB64(s) { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
+
+async function deriveKey(pin, saltHex) {
+  const raw = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: fromHex(saltHex), iterations: 100000, hash: 'SHA-256' },
+    raw,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptEvents(arr, pin) {
+  const salt   = toHex(crypto.getRandomValues(new Uint8Array(16)));
+  const iv     = crypto.getRandomValues(new Uint8Array(12));
+  const key    = await deriveKey(pin, salt);
+  const plain  = new TextEncoder().encode(JSON.stringify(arr));
+  const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plain);
+  return { encrypted: true, salt, iv: toHex(iv), data: toB64(new Uint8Array(cipher)) };
+}
+
+async function decryptEvents(envelope, pin) {
+  const key   = await deriveKey(pin, envelope.salt);
+  const plain = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: fromHex(envelope.iv) },
+    key,
+    fromB64(envelope.data)
+  );
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+// Load events
+
+async function loadEvents() {
+  eventsReady = false;
+  try {
+    const res = await fetch(EVENTS_FILE + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) { events = []; eventsReady = true; return; }
+    const json = await res.json();
+    if (json.encrypted) {
+      events = await decryptEvents(json, activePIN);
+    } else {
+      events = json;
+    }
+  } catch {
+    events = [];
+  }
+  eventsReady = true;
+}
+
+// Fetch current file SHA from GitHub API (required for updates)
+
+async function fetchSha() {
+  const { owner, repo, token } = getSettings();
+  if (!owner || !repo || !token) return null;
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${EVENTS_FILE}`,
+      { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' } }
+    );
+    if (!res.ok) return null;
+    return (await res.json()).sha || null;
+  } catch {
+    return null;
+  }
+}
+
+// Save events array to GitHub via Contents API
+
+async function persistEvents() {
+  if (!eventsReady) {
+    showToast('Still loading — please wait a moment', 'error');
+    return false;
+  }
+  const { owner, repo, token } = getSettings();
+  if (!owner || !repo || !token) {
+    showToast('Configure GitHub settings first', 'error');
+    openSettings();
+    return false;
+  }
+
+  if (!activePIN) {
+    showToast('Session expired — please refresh the page', 'error');
+    return false;
+  }
+
+  showSaving(true);
+
+  if (!fileSha) fileSha = await fetchSha();
+
+  // Encrypt then base64-encode for GitHub API
+  const envelope = await encryptEvents(events, activePIN);
+  const json     = JSON.stringify(envelope);
+  const content  = btoa(unescape(encodeURIComponent(json)));
+  const body     = { message: 'Update calendar events', content };
+  if (fileSha) body.sha = fileSha;
+
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${EVENTS_FILE}`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      }
+    );
+
+    if (res.status === 409 || res.status === 422) {
+      // SHA conflict — refetch and retry once
+      fileSha = await fetchSha();
+      if (fileSha) body.sha = fileSha;
+      const retry = await fetch(
+        `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${EVENTS_FILE}`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        }
+      );
+      if (!retry.ok) {
+        const err = await retry.json().catch(() => ({}));
+        showToast('Save failed: ' + (err.message || retry.status), 'error');
+        showSaving(false);
+        return false;
+      }
+      fileSha = ((await retry.json()).content || {}).sha || null;
+      showSaving(false);
+      showToast('Saved ✓', 'success');
+      return true;
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showToast('Save failed: ' + (err.message || res.status), 'error');
+      showSaving(false);
+      return false;
+    }
+
+    fileSha = ((await res.json()).content || {}).sha || null;
+    showSaving(false);
+    showToast('Saved ✓', 'success');
+    return true;
+  } catch {
+    showToast('Network error — check connection', 'error');
+    showSaving(false);
+    return false;
+  }
+}
+
+// Convert stored event to FullCalendar format
+// FullCalendar uses exclusive end dates for all-day events, so add 1 day
+
+function toFC(ev) {
+  let end = ev.end || ev.start;
+  const d = new Date(end + 'T12:00:00');
+  d.setDate(d.getDate() + 1);
+  return {
+    id:              ev.id,
+    title:           ev.title,
+    start:           ev.start,
+    end:             d.toISOString().split('T')[0],
+    allDay:          true,
+    backgroundColor: TYPE_COLORS[ev.type] || '#64748b',
+    borderColor:     TYPE_COLORS[ev.type] || '#64748b',
+    extendedProps:   { type: ev.type, notes: ev.notes }
+  };
+}
+
+function toFCBackground(ev) {
+  let end = ev.end || ev.start;
+  const d = new Date(end + 'T12:00:00');
+  d.setDate(d.getDate() + 1);
+  return {
+    id:              'bg-' + ev.id,
+    start:           ev.start,
+    end:             d.toISOString().split('T')[0],
+    allDay:          true,
+    display:         'background',
+    backgroundColor: 'rgba(34,197,94,0.13)'
+  };
+}
+
+function renderEvents() {
+  calendar.removeAllEvents();
+  events.forEach(ev => {
+    calendar.addEvent(toFC(ev));
+    if (ev.type === 'custody') calendar.addEvent(toFCBackground(ev));
+  });
+}
+
+// Modals
+
+function openAddModal(startDate) {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Add Event';
+  document.getElementById('f-title').value = '';
+  document.getElementById('f-type').value  = 'custody';
+  document.getElementById('f-start').value = startDate || todayStr();
+  document.getElementById('f-end').value   = startDate || todayStr();
+  document.getElementById('f-notes').value = '';
+  document.getElementById('delete-btn').style.display = 'none';
+  document.getElementById('event-modal').classList.add('open');
+  setTimeout(() => document.getElementById('f-title').focus(), 80);
+}
+
+function openEditModal(fcEvent) {
+  const stored = events.find(e => e.id === fcEvent.id);
+  if (!stored) return;
+  editingId = stored.id;
+  document.getElementById('modal-title').textContent = 'Edit Event';
+  document.getElementById('f-title').value = stored.title;
+  document.getElementById('f-type').value  = stored.type;
+  document.getElementById('f-start').value = stored.start;
+  document.getElementById('f-end').value   = stored.end || stored.start;
+  document.getElementById('f-notes').value = stored.notes || '';
+  document.getElementById('delete-btn').style.display = 'inline-flex';
+  document.getElementById('event-modal').classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+async function saveEvent() {
+  const { owner, repo, token } = getSettings();
+  if (!owner || !repo || !token) {
+    showToast('Read-only mode — configure GitHub settings to save changes', 'error');
+    return;
+  }
+  const title = document.getElementById('f-title').value.trim();
+  const type  = document.getElementById('f-type').value;
+  const start = document.getElementById('f-start').value;
+  const end   = document.getElementById('f-end').value;
+  const notes = document.getElementById('f-notes').value.trim();
+
+  if (!title) { document.getElementById('f-title').focus(); return; }
+  if (!start) { document.getElementById('f-start').focus(); return; }
+
+  const finalEnd = (end && end >= start) ? end : start;
+  const ev = { id: editingId || String(Date.now()), title, type, start, end: finalEnd, notes };
+
+  const snapshot = [...events];
+  if (editingId) {
+    const idx = events.findIndex(e => e.id === editingId);
+    if (idx !== -1) events[idx] = ev;
+  } else {
+    events.push(ev);
+  }
+
+  closeModal('event-modal');
+  renderEvents();
+  const ok = await persistEvents();
+  if (!ok) { events = snapshot; renderEvents(); }
+}
+
+async function deleteEvent() {
+  if (!editingId) return;
+  const { owner, repo, token } = getSettings();
+  if (!owner || !repo || !token) {
+    showToast('Read-only mode — configure GitHub settings to delete events', 'error');
+    return;
+  }
+  if (!confirm('Delete this event?')) return;
+  const snapshot = [...events];
+  events = events.filter(e => e.id !== editingId);
+  closeModal('event-modal');
+  renderEvents();
+  const ok = await persistEvents();
+  if (!ok) { events = snapshot; renderEvents(); }
+}
+
+// UI helpers
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = 'toast'; }, 3200);
+}
+
+function showSaving(on) {
+  document.getElementById('saving-badge').classList.toggle('show', on);
+}
+
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+// Init
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadEvents();
+
+  calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    initialView:   window.innerWidth < 600 ? 'listMonth' : 'dayGridMonth',
+    headerToolbar: {
+      left:   'prev,next today',
+      center: 'title',
+      right:  'dayGridMonth,listMonth'
+    },
+    height:       'auto',
+    firstDay:     1,
+    dayMaxEvents: 4,
+    eventClick:   info => openEditModal(info.event),
+    dateClick:    info => openAddModal(info.dateStr),
+    eventDisplay: 'block',
+    eventContent: (arg) => {
+      const notes = arg.event.extendedProps.notes;
+      if (!notes) return true;
+      return {
+        html: `<div class="fc-event-main" style="padding:1px 3px">
+                 <div class="fc-event-title">${arg.event.title}</div>
+                 <div class="fc-event-desc">${notes}</div>
+               </div>`
+      };
+    }
+  });
+
+  renderEvents();
+  calendar.render();
+
+  const s = getSettings();
+  if (!s.owner || !s.token) {
+    setTimeout(() => showToast('Read-only mode — open ⚙ Settings to enable saving', ''), 700);
+  }
+
+  // Close modal when clicking backdrop
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) overlay.classList.remove('open');
+    });
+  });
+
+  // Escape key closes modals
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay.open')
+        .forEach(m => m.classList.remove('open'));
+    }
+  });
+});
+
+// PIN gate
+
+async function sha256(msg) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function setupPin() {
+  const pin = document.getElementById('pin-input').value;
+  if (!pin || pin.length < 4) { showPinMsg('PIN must be at least 4 characters'); return; }
+  const hash = await sha256(pin);
+  localStorage.setItem('cal_pin', hash);
+  history.replaceState(null, '', location.pathname);
+  unlockCalendar(pin);
+}
+
+async function checkPin() {
+  const pin = document.getElementById('pin-input').value;
+  if (!pin) return;
+
+  const storedHash = localStorage.getItem('cal_pin');
+  if (storedHash) {
+    // Fast path: PIN hash cached on this device
+    const hash = await sha256(pin);
+    if (hash === storedHash) {
+      unlockCalendar(pin);
+    } else {
+      showPinMsg('Incorrect PIN');
+      document.getElementById('pin-input').value = '';
+      document.getElementById('pin-input').focus();
+    }
+  } else {
+    // New device: verify by attempting decryption of events.json
+    showPinMsg('Verifying…');
+    try {
+      const res = await fetch('events.json?t=' + Date.now());
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      if (!json.encrypted) {
+        // Data not encrypted yet — unlock in read-only mode, no PIN verification possible
+        unlockCalendar(pin);
+        setTimeout(() => showToast('Data not encrypted yet — owner should open Settings and click Encrypt & Save', ''), 800);
+        return;
+      }
+      await decryptEvents(json, pin); // throws on wrong PIN (AES-GCM tag mismatch)
+      const hash = await sha256(pin);
+      localStorage.setItem('cal_pin', hash);
+      unlockCalendar(pin);
+    } catch {
+      showPinMsg('Incorrect PIN');
+      document.getElementById('pin-input').value = '';
+      document.getElementById('pin-input').focus();
+    }
+  }
+}
+
+function showPinMsg(msg) {
+  const el = document.getElementById('pin-error');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+
+async function unlockCalendar(pin) {
+  activePIN = pin;
+  sessionStorage.setItem('cal_pin_s', pin);
+  document.getElementById('pin-gate').remove();
+  await loadEvents();
+  if (typeof renderEvents === 'function') renderEvents();
+}
+
+function copySetupLink() {
+  const url = location.origin + location.pathname + '#init';
+  navigator.clipboard.writeText(url)
+    .then(() => showToast('Setup link copied ✓', 'success'))
+    .catch(() => { document.getElementById('s-init-url').select(); showToast('Copy manually — link selected', ''); });
+}
+
+async function encryptAndSave() {
+  saveSettings(); // persist owner/repo/token to localStorage first
+  closeModal('settings-modal');
+  const ok = await persistEvents();
+  if (ok) showToast('Data encrypted and saved ✓', 'success');
+}
+
+async function changePIN() {
+  const newPin = prompt('Enter new PIN (min 4 characters):');
+  if (!newPin) return;
+  if (newPin.length < 4) { showToast('PIN must be at least 4 characters', 'error'); return; }
+  const hash = await sha256(newPin);
+  localStorage.setItem('cal_pin', hash);
+  activePIN = newPin;
+  sessionStorage.setItem('cal_pin_s', newPin);
+  const ok = await persistEvents();
+  closeModal('settings-modal');
+  if (ok) showToast('PIN changed and data re-encrypted ✓', 'success');
+}
+
+(function initPinGate() {
+  const sessionPin = sessionStorage.getItem('cal_pin_s');
+  if (sessionPin) { activePIN = sessionPin; return; }
+
+  const initMode = location.hash === '#init';
+  const gate     = document.createElement('div');
+  gate.id = 'pin-gate';
+
+  if (initMode) {
+    gate.innerHTML = `
+      <h1>&#128197; Family Calendar</h1>
+      <p>Set a PIN to protect your calendar.</p>
+      <input type="password" id="pin-input" placeholder="New PIN (4+ characters)" maxlength="32"
+             autocomplete="new-password" inputmode="numeric">
+      <button class="btn btn-primary" onclick="setupPin()">Set PIN</button>
+      <span id="pin-error" style="color:#f87171;font-size:0.85rem;display:none"></span>`;
+  } else {
+    gate.innerHTML = `
+      <h1>&#128197; Family Calendar</h1>
+      <p>Enter your PIN to continue</p>
+      <input type="password" id="pin-input" placeholder="PIN" maxlength="32"
+             autocomplete="current-password" inputmode="numeric">
+      <button class="btn btn-primary" onclick="checkPin()">Unlock</button>
+      <span id="pin-error" style="color:#f87171;font-size:0.85rem;display:none"></span>
+      <p style="margin-top:24px;font-size:0.72rem;color:#475569;opacity:0.5">
+        Calendar owner? <a href="#init" style="color:#94a3b8;text-decoration:underline"
+          onclick="location.hash='#init';location.reload()">Initial setup</a>
+      </p>`;
+  }
+
+  document.body.appendChild(gate);
+  document.addEventListener('DOMContentLoaded', () => {
+    const inp = document.getElementById('pin-input');
+    if (inp) {
+      inp.focus();
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') initMode ? setupPin() : checkPin();
+      });
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
